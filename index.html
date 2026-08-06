@@ -267,11 +267,16 @@
 
       <!-- BILLING -->
       <section class="view" id="v-billing">
+        <div class="tiles" id="billTiles"></div>
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="margin-top:0;">Your subscriptions</h3>
+          <div id="billTableWrap"><div class="muted">Loading…</div></div>
+          <div class="muted" style="font-size:12.5px;margin-top:10px;">Payment and checkout are handled securely on the website — no card details are stored here. Once your access is confirmed, apps unlock here automatically.</div>
+        </div>
+        <div class="card" id="premiumCard" style="margin-bottom:16px;"></div>
         <div class="card">
-          <h3 style="margin-top:0;">Subscription summary</h3>
-          <div id="billList" class="muted">Loading…</div>
-          <hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">
-          <div class="muted" style="font-size:13px;">Full plans, invoices and Premium All-Access are coming next. To subscribe to an app now, open it from the Dashboard and use its checkout, or visit <a href="https://jt3rdegre3.com#pricing" target="_blank" rel="noopener">jt3rdegre3.com pricing</a>.</div>
+          <h3 style="margin-top:0;">Invoices</h3>
+          <div id="invWrap"><div class="muted">Loading…</div></div>
         </div>
       </section>
 
@@ -310,6 +315,12 @@ var SUPABASE_ANON_KEY='sb_publishable_yYB5wciGbc7zJyc7oe1RYg_B9npEyqN';
 var sb=null; try{ sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ console.error(e); }
 var userEmail='', userName='', userRole='', isOwner=false, myId=null;
 var company={id:null,name:'',invite:'',email:'',biz:''}, apps=[], users=[];
+var billing=[], plans=[], invoices=[];
+var WEBSITE='https://jt3rdegre3.com';
+function subscribeUrl(key){ return WEBSITE+'/#'+encodeURIComponent(key); }
+function appByKey(k){ for(var i=0;i<apps.length;i++){ if(apps[i].key===k) return apps[i]; } return null; }
+function curSym(c){ return {EUR:'€',USD:'$',GBP:'£',PHP:'₱'}[c]||((c||'')+' '); }
+function fmtPrice(p,c){ if(p==null||p==='') return null; return curSym(c)+Number(p).toFixed(Number(p)%1?2:0); }
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(function(){t.style.display='none';},3200); }
@@ -415,7 +426,7 @@ function renderDashboard(){
     '</div>';
   }).join('') : '<div class="empty">No applications available.</div>';
   g.querySelectorAll('[data-open]').forEach(function(b){ b.addEventListener('click',function(){ window.open(b.getAttribute('data-open'),'_blank','noopener'); }); });
-  g.querySelectorAll('[data-sub]').forEach(function(b){ b.addEventListener('click',function(){ window.open('https://jt3rdegre3.com/#'+b.getAttribute('data-sub'),'_blank','noopener'); }); });
+  g.querySelectorAll('[data-sub]').forEach(function(b){ b.addEventListener('click',function(){ window.open(subscribeUrl(b.getAttribute('data-sub')),'_blank','noopener'); }); });
 }
 function renderAppNav(){
   var el=document.getElementById('appNav');
@@ -522,11 +533,62 @@ function renderShare(){ var u=document.getElementById('share-url'); if(u) u.valu
 document.getElementById('share-copy').addEventListener('click',function(){ var u=document.getElementById('share-url'); u.select(); navigator.clipboard.writeText(u.value).then(function(){toast('Link copied.');}).catch(function(){toast('Copy failed.');}); });
 
 /* billing */
-function renderBilling(){
-  var el=document.getElementById('billList');
-  var on=apps.filter(function(a){return a.unlocked;});
-  el.innerHTML = on.length? '<table><thead><tr><th>Application</th><th>Status</th><th>Access until</th></tr></thead><tbody>'+on.map(function(a){ return '<tr><td>'+esc(a.name)+'</td><td><span class="status on" style="padding:2px 9px;border-radius:999px;background:rgba(47,138,60,.14);color:var(--green);font-size:11.5px;font-weight:700;">Active</span></td><td>'+fmtDate(a.access_until)+'</td></tr>'; }).join('')+'</tbody></table>'
-    : '<div class="empty">No active subscriptions yet. Open an app from the Dashboard to subscribe.</div>';
+async function loadBilling(){
+  try{ var r=await sb.rpc('my_billing'); billing=(r.data&&Array.isArray(r.data))?r.data:[]; }catch(_){ billing=[]; }
+  try{ var p=await sb.from('plans').select('code,name,kind,app_key,billing_cycle,price,currency').eq('is_active',true).order('sort_order'); plans=(!p.error&&p.data)?p.data:[]; }catch(_){ plans=[]; }
+  try{ var i=await sb.from('invoices').select('number,description,amount,currency,status,issued_at').order('issued_at',{ascending:false}); invoices=(!i.error&&i.data)?i.data:[]; }catch(_){ invoices=[]; }
+}
+var BILL_LABEL={active:'Active',expiring:'Expiring soon',expired:'Expired',locked:'Locked'};
+async function renderBilling(){
+  document.getElementById('billTableWrap').innerHTML='<div class="muted">Loading…</div>';
+  await loadBilling();
+  var rows = billing.length? billing : apps.map(function(a){ return {app_key:a.key,name:a.sidebar_name||a.name,unlocked:a.unlocked,access_until:a.access_until,days_left:null,status:a.unlocked?'active':'locked'}; });
+  var active=rows.filter(function(x){return x.unlocked;}).length;
+  var expiring=rows.filter(function(x){return x.status==='expiring';}).length;
+  var dates=rows.filter(function(x){return x.unlocked&&x.access_until;}).map(function(x){return x.access_until;}).sort();
+  var nextR=dates.length?fmtDate(dates[0]):'—';
+  document.getElementById('billTiles').innerHTML=
+    '<div class="tile g"><div class="n">'+active+'</div><div class="l">Active apps</div></div>'+
+    '<div class="tile a"><div class="n">'+expiring+'</div><div class="l">Expiring soon</div></div>'+
+    '<div class="tile b"><div class="n">'+rows.length+'</div><div class="l">Available apps</div></div>'+
+    '<div class="tile"><div class="n" style="font-size:19px;">'+esc(nextR)+'</div><div class="l">Next renewal</div></div>';
+  document.getElementById('billTableWrap').innerHTML=
+    '<table><thead><tr><th>App</th><th>Status</th><th>Renews</th><th style="text-align:right;">Action</th></tr></thead><tbody>'+
+    rows.map(function(x){
+      var st=x.status||(x.unlocked?'active':'locked');
+      var badge='<span class="status '+(x.unlocked?'on':'off')+'"'+(st==='expiring'?' style="background:rgba(200,144,31,.16);color:var(--amber);"':'')+'>'+esc(BILL_LABEL[st]||st)+
+        (st==='expiring'&&x.days_left!=null?' · '+x.days_left+'d':'')+'</span>';
+      var ap=appByKey(x.app_key);
+      var act = x.unlocked
+        ? '<button class="btn sm blue" data-open="'+esc(ap?ap.url:subscribeUrl(x.app_key))+'">Open</button>'+(st==='expiring'||st==='expired'?' <button class="btn sm" data-sub="'+esc(x.app_key)+'">Renew</button>':'')
+        : '<button class="btn sm primary" data-sub="'+esc(x.app_key)+'">🔒 Subscribe</button>';
+      return '<tr><td><b>'+esc(x.name)+'</b></td><td>'+badge+'</td><td class="muted">'+(x.unlocked&&x.access_until?fmtDate(x.access_until):'—')+'</td><td style="text-align:right;">'+act+'</td></tr>';
+    }).join('')+'</tbody></table>';
+  var bt=document.getElementById('billTableWrap');
+  bt.querySelectorAll('[data-open]').forEach(function(b){ b.addEventListener('click',function(){ window.open(b.getAttribute('data-open'),'_blank','noopener'); }); });
+  bt.querySelectorAll('[data-sub]').forEach(function(b){ b.addEventListener('click',function(){ window.open(subscribeUrl(b.getAttribute('data-sub')),'_blank','noopener'); }); });
+  // Premium All-Access card
+  var pm=null; for(var i=0;i<plans.length;i++){ if(plans[i].code==='premium_month'){ pm=plans[i]; break; } }
+  var pmPrice=pm?fmtPrice(pm.price,pm.currency):null;
+  var allOn=rows.length>0 && active===rows.length;
+  document.getElementById('premiumCard').innerHTML=
+    '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">'+
+      '<div style="flex:1;min-width:220px;">'+
+        '<h3 style="margin:0 0 4px;">✨ Premium All-Access</h3>'+
+        '<div class="muted" style="font-size:13.5px;">One subscription unlocks all '+rows.length+' apps — including any new apps we add. Best value for QHSE teams and freelance safety officers.</div>'+
+      '</div>'+
+      '<div style="text-align:right;">'+
+        (pmPrice?'<div style="font-size:22px;font-weight:800;">'+esc(pmPrice)+'<span class="muted" style="font-size:13px;font-weight:500;">/month</span></div>':'')+
+        (allOn?'<div class="status on" style="margin-top:6px;">You have full access</div>'
+              :'<button class="btn primary" id="premiumBtn" style="margin-top:6px;">'+(pmPrice?'Get Premium':'View pricing')+' →</button>')+
+      '</div>'+
+    '</div>';
+  var pb=document.getElementById('premiumBtn'); if(pb) pb.addEventListener('click',function(){ window.open(WEBSITE+'/#pricing','_blank','noopener'); });
+  // Invoices
+  document.getElementById('invWrap').innerHTML = invoices.length
+    ? '<table><thead><tr><th>Invoice</th><th>Description</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead><tbody>'+
+      invoices.map(function(v){ return '<tr><td>'+esc(v.number||'—')+'</td><td>'+esc(v.description||'—')+'</td><td class="muted">'+(v.issued_at?fmtDate(v.issued_at):'—')+'</td><td>'+esc(v.amount!=null?(curSym(v.currency)+Number(v.amount).toFixed(2)):'—')+'</td><td><span class="status '+(v.status==='paid'?'on':'off')+'">'+esc(v.status||'')+'</span></td></tr>'; }).join('')+'</tbody></table>'
+    : '<div class="empty" style="padding:14px 0;">No invoices yet. Your payments will appear here.</div>';
 }
 
 /* my account */
