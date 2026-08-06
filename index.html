@@ -321,6 +321,9 @@ function subscribeUrl(key){ return WEBSITE+'/#'+encodeURIComponent(key); }
 function appByKey(k){ for(var i=0;i<apps.length;i++){ if(apps[i].key===k) return apps[i]; } return null; }
 function curSym(c){ return {EUR:'€',USD:'$',GBP:'£',PHP:'₱'}[c]||((c||'')+' '); }
 function fmtPrice(p,c){ if(p==null||p==='') return null; return curSym(c)+Number(p).toFixed(Number(p)%1?2:0); }
+function detectCur(){ try{ var tz=(Intl.DateTimeFormat().resolvedOptions().timeZone||''); if(/Manila/i.test(tz)) return 'PHP'; if(/^Europe\//.test(tz)||/Atlantic\/(Canary|Madeira|Faroe)/.test(tz)) return 'EUR'; var l=(navigator.language||''); if(/-PH$/i.test(l)) return 'PHP'; if(/-(IE|DE|FR|ES|IT|NL|BE|AT|PT|FI|LU|GR|SK|SI|LV|LT|EE|CY|MT)$/i.test(l)) return 'EUR'; return 'USD'; }catch(e){ return 'USD'; } }
+var PREMIUM={ EUR:{sym:'€',mo:'89',yr:'890'}, USD:{sym:'$',mo:'99',yr:'990'}, PHP:{sym:'₱',mo:'899',yr:'8,990'} };
+function premiumFor(){ return PREMIUM[detectCur()]||PREMIUM.EUR; }
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(function(){t.style.display='none';},3200); }
@@ -567,9 +570,8 @@ async function renderBilling(){
   var bt=document.getElementById('billTableWrap');
   bt.querySelectorAll('[data-open]').forEach(function(b){ b.addEventListener('click',function(){ window.open(b.getAttribute('data-open'),'_blank','noopener'); }); });
   bt.querySelectorAll('[data-sub]').forEach(function(b){ b.addEventListener('click',function(){ window.open(subscribeUrl(b.getAttribute('data-sub')),'_blank','noopener'); }); });
-  // Premium All-Access card
-  var pm=null; for(var i=0;i<plans.length;i++){ if(plans[i].code==='premium_month'){ pm=plans[i]; break; } }
-  var pmPrice=pm?fmtPrice(pm.price,pm.currency):null;
+  // Premium All-Access card (currency-aware, matches website)
+  var pp=premiumFor();
   var allOn=rows.length>0 && active===rows.length;
   document.getElementById('premiumCard').innerHTML=
     '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">'+
@@ -577,10 +579,11 @@ async function renderBilling(){
         '<h3 style="margin:0 0 4px;">✨ Premium All-Access</h3>'+
         '<div class="muted" style="font-size:13.5px;">One subscription unlocks all '+rows.length+' apps — including any new apps we add. Best value for QHSE teams and freelance safety officers.</div>'+
       '</div>'+
-      '<div style="text-align:right;">'+
-        (pmPrice?'<div style="font-size:22px;font-weight:800;">'+esc(pmPrice)+'<span class="muted" style="font-size:13px;font-weight:500;">/month</span></div>':'')+
-        (allOn?'<div class="status on" style="margin-top:6px;">You have full access</div>'
-              :'<button class="btn primary" id="premiumBtn" style="margin-top:6px;">'+(pmPrice?'Get Premium':'View pricing')+' →</button>')+
+      '<div style="text-align:right;min-width:180px;">'+
+        '<div style="font-size:26px;font-weight:800;">'+esc(pp.sym+pp.mo)+'<span class="muted" style="font-size:13px;font-weight:500;">/month</span></div>'+
+        '<div class="muted" style="font-size:12.5px;margin:2px 0 8px;">or '+esc(pp.sym+pp.yr)+' / year — <b style="color:var(--green);">2 months free</b></div>'+
+        (allOn?'<div class="status on">You have full access</div>'
+              :'<button class="btn primary" id="premiumBtn">Get Premium →</button>')+
       '</div>'+
     '</div>';
   var pb=document.getElementById('premiumBtn'); if(pb) pb.addEventListener('click',function(){ window.open(WEBSITE+'/#pricing','_blank','noopener'); });
