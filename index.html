@@ -367,7 +367,9 @@ function show(id){document.getElementById(id).classList.remove('hidden');}
 function hide(id){document.getElementById(id).classList.add('hidden');}
 
 /* theme */
-function applyTheme(t){ document.documentElement.setAttribute('data-theme', t==='dark'?'dark':'light'); try{localStorage.setItem('msd_theme',t);}catch(_){} document.getElementById('themeBtn').textContent = t==='dark'?'☀️':'🌙'; }
+function applyTheme(t){ t=(t==='dark'?'dark':'light'); document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('msd_theme',t);}catch(_){} document.getElementById('themeBtn').textContent = t==='dark'?'☀️':'🌙';
+  try{ var f=document.getElementById('appFrame'); if(f&&currentAppOrigin&&f.src&&f.src.indexOf('about:blank')<0){ f.contentWindow.postMessage({type:'embed-theme',theme:t}, currentAppOrigin); } }catch(_){}
+}
 function toggleTheme(){ var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light'; applyTheme(cur==='dark'?'light':'dark'); }
 try{ applyTheme(localStorage.getItem('msd_theme')||'light'); }catch(_){ applyTheme('light'); }
 
@@ -506,7 +508,8 @@ function openAppInShell(url,name){
   document.getElementById('appNewTab').onclick=function(){ window.open(url,'_blank','noopener'); };
   document.getElementById('appReload').onclick=function(){ sp.classList.remove('hide'); frame.src=frame.src; };
   frame.onload=function(){ sp.classList.add('hide'); };
-  frame.src=url+(url.indexOf('#')<0?'#embed':'');
+  var th=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+  frame.src=url+(url.indexOf('#')<0?'#embed':'')+'&theme='+th;
   document.querySelectorAll('.view').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById('v-appview').classList.add('active');
   document.querySelector('.main').classList.add('appmode');
