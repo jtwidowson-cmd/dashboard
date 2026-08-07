@@ -188,6 +188,18 @@
   </div>
 </div>
 
+<!-- PREMIUM GATE (shown when a signed-in user is NOT Premium All-Access) -->
+<div id="premiumGate" class="overlay hidden">
+  <div class="login-card" style="max-width:460px;text-align:center;">
+    <img id="gateLogo" class="brand-logo" alt="JT.3rDegre3">
+    <div class="login-title">Premium members only</div>
+    <div class="login-sub">The Management Dashboard is part of <b>Premium All-Access</b>. Your current plan gives you your app directly — open it below.</div>
+    <div id="gateApps" style="display:flex;flex-direction:column;gap:8px;margin:6px 0 14px;"></div>
+    <a class="btn primary full" href="https://jt3rdegre3.com/#pricing" target="_blank" rel="noopener">Upgrade to Premium All-Access</a>
+    <button class="linkbtn" id="gateSignout" style="margin-top:12px;">Sign out</button>
+  </div>
+</div>
+
 <!-- SHELL -->
 <div id="app" class="shell hidden">
   <div class="scrim" id="scrim"></div>
@@ -337,7 +349,7 @@
 var SUPABASE_URL='https://xsfrgivexrwzvmhmysrf.supabase.co';
 var SUPABASE_ANON_KEY='sb_publishable_yYB5wciGbc7zJyc7oe1RYg_B9npEyqN';
 var sb=null; try{ sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ console.error(e); }
-var userEmail='', userName='', userRole='', isOwner=false, myId=null;
+var userEmail='', userName='', userRole='', isOwner=false, isPremium=false, myId=null;
 var company={id:null,name:'',invite:'',email:'',biz:''}, apps=[], users=[];
 var billing=[], plans=[], invoices=[];
 var WEBSITE='https://jt3rdegre3.com';
@@ -360,7 +372,7 @@ function toggleTheme(){ var cur=document.documentElement.getAttribute('data-them
 try{ applyTheme(localStorage.getItem('msd_theme')||'light'); }catch(_){ applyTheme('light'); }
 
 /* brand logo (JT default; swaps to company logo) */
-function applyBrand(url){ var a=document.getElementById('loginLogo'), b=document.getElementById('sideLogo'); var src=url||JT_LOGO; if(a){a.src=src;} if(b){b.src=src;} }
+function applyBrand(url){ var a=document.getElementById('loginLogo'), b=document.getElementById('sideLogo'), c=document.getElementById('gateLogo'); var src=url||JT_LOGO; if(a){a.src=src;} if(b){b.src=src;} if(c){c.src=src;} }
 
 /* ============ AUTH ============ */
 function setMode(m){
@@ -415,10 +427,24 @@ async function boot(){
   userEmail=s.user.email||''; myId=s.user.id;
   try{ var o=await sb.rpc('is_platform_owner'); isOwner=(o.data===true); }catch(_){}
   try{ var pr=await sb.from('profiles').select('role,name').eq('id',myId).single(); if(pr.data){ userRole=pr.data.role||''; userName=pr.data.name||''; } }catch(_){}
+  await loadCompany(); await loadApps();
+  if(isOwner){ isPremium=true; }
+  else{ try{ var pm=await sb.rpc('is_premium'); isPremium=(pm.data===true); }catch(_){ isPremium=false; } }
+  if(!isPremium){ hide('loginOverlay'); showPremiumGate(); return; }
   hide('loginOverlay'); document.getElementById('app').classList.remove('hidden');
-  await loadCompany(); await loadApps(); await loadUsers();
+  await loadUsers();
   paintProfile(); renderDashboard(); renderAppNav(); renderShare();
 }
+function showPremiumGate(){
+  applyBrand(company.logo_url||'');
+  var wrap=document.getElementById('gateApps');
+  var on=apps.filter(function(a){return a.unlocked;});
+  wrap.innerHTML = on.length
+    ? on.map(function(a){ return '<a class="btn blue full" href="'+esc(a.url)+'" target="_blank" rel="noopener">Open '+esc(a.sidebar_name||a.name)+' →</a>'; }).join('')
+    : '<div class="muted" style="font-size:13px;">No active app on your account yet. Contact support@jt3rdegre3.com.</div>';
+  document.getElementById('premiumGate').classList.remove('hidden');
+}
+document.getElementById('gateSignout').addEventListener('click', doLogout);
 function paintProfile(){
   document.getElementById('welcomeName').textContent='Welcome'+(userName?', '+userName.split(' ')[0]:'')+' 👋';
   document.getElementById('welcomeSub').textContent=company.name?('Signed in to '+company.name):'';
