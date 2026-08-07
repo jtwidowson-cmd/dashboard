@@ -77,6 +77,17 @@
   .icon-btn:hover{border-color:var(--blue);}
   .content{padding:22px;max-width:1180px;width:100%;}
   .view{display:none;} .view.active{display:block;}
+  /* in-shell app viewer */
+  .main.appmode .content{max-width:none;padding:0;flex:1;display:flex;flex-direction:column;}
+  #v-appview{display:none;flex:1;flex-direction:column;min-height:0;}
+  #v-appview.active{display:flex;}
+  .appbar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--line);}
+  .appbar .nm{font-weight:700;font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .appbar .sp{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;flex:none;}
+  .appbar .sp.hide{display:none;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .appframe-wrap{flex:1;min-height:0;position:relative;background:var(--ink);}
+  #appFrame{width:100%;height:100%;border:0;display:block;}
 
   /* dashboard */
   .welcome{margin-bottom:20px;}
@@ -292,6 +303,19 @@
       <section class="view" id="v-help"><div class="card"><h3 style="margin-top:0;">Help &amp; Support</h3><div class="muted">Need a hand? Email <b>support@jt3rdegre3.com</b> and we'll get back to you. Built for QHSE teams, companies without a full-time safety officer, and freelance safety professionals.</div></div></section>
 
     </div>
+
+    <!-- IN-SHELL APP VIEWER (full-height, outside padded content) -->
+    <section id="v-appview">
+      <div class="appbar">
+        <button class="icon-btn" id="appBack" title="Back to dashboard" style="width:34px;height:34px;font-size:15px;">←</button>
+        <span class="nm" id="appFrameName">App</span>
+        <span class="sp" id="appSpin"></span>
+        <button class="btn sm" id="appReload" title="Reload">⟳</button>
+        <button class="btn sm" id="appNewTab" title="Open in a new tab">Open in new tab ↗</button>
+      </div>
+      <div class="appframe-wrap"><iframe id="appFrame" title="App" referrerpolicy="origin"></iframe></div>
+    </section>
+
   </div>
 </div>
 
@@ -424,28 +448,66 @@ function renderDashboard(){
     return '<div class="app-card'+(on?'':' locked')+'">'+
       '<div style="display:flex;gap:12px;align-items:center;"><div class="ic">'+esc(a.icon||'📦')+'</div><div><div class="nm">'+esc(a.sidebar_name||a.name)+'</div><span class="status '+(on?'on':'off')+'">'+(on?'Active'+(a.access_until?' · until '+fmtDate(a.access_until):''):'Locked')+'</span></div></div>'+
       '<div class="ds">'+esc(a.description||'')+'</div>'+
-      (on? '<button class="btn blue" data-open="'+esc(a.url)+'">Open →</button>'
+      (on? '<button class="btn blue" data-open="'+esc(a.url)+'" data-name="'+esc(a.sidebar_name||a.name)+'">Open →</button>'
          : '<button class="btn primary" data-sub="'+esc(a.key)+'">🔒 Subscribe</button>')+
     '</div>';
   }).join('') : '<div class="empty">No applications available.</div>';
-  g.querySelectorAll('[data-open]').forEach(function(b){ b.addEventListener('click',function(){ window.open(b.getAttribute('data-open'),'_blank','noopener'); }); });
+  g.querySelectorAll('[data-open]').forEach(function(b){ b.addEventListener('click',function(){ openAppInShell(b.getAttribute('data-open'), b.getAttribute('data-name')); }); });
   g.querySelectorAll('[data-sub]').forEach(function(b){ b.addEventListener('click',function(){ window.open(subscribeUrl(b.getAttribute('data-sub')),'_blank','noopener'); }); });
 }
 function renderAppNav(){
   var el=document.getElementById('appNav');
   el.innerHTML=apps.map(function(a){
-    return '<div class="navi" data-app="'+esc(a.url)+'" data-locked="'+(a.unlocked?'0':'1')+'"><span class="ic">'+esc(a.icon||'📦')+'</span><span class="lbl">'+esc(a.sidebar_name||a.name)+'</span>'+(a.unlocked?'':'<span class="lock">🔒</span>')+'</div>';
+    return '<div class="navi" data-app="'+esc(a.url)+'" data-name="'+esc(a.sidebar_name||a.name)+'" data-locked="'+(a.unlocked?'0':'1')+'"><span class="ic">'+esc(a.icon||'📦')+'</span><span class="lbl">'+esc(a.sidebar_name||a.name)+'</span>'+(a.unlocked?'':'<span class="lock">🔒</span>')+'</div>';
   }).join('');
   el.querySelectorAll('[data-app]').forEach(function(n){ n.addEventListener('click',function(){
     if(n.getAttribute('data-locked')==='1'){ toast('This app is locked — subscribe to unlock it.'); goView('dashboard'); return; }
-    window.open(n.getAttribute('data-app'),'_blank','noopener');
+    openAppInShell(n.getAttribute('data-app'), n.getAttribute('data-name'));
   }); });
 }
 function fmtDate(d){ if(!d) return '—'; try{ return new Date(d).toLocaleDateString('en-IE',{day:'2-digit',month:'short',year:'numeric'}); }catch(_){ return '—'; } }
 
 /* ============ NAV ============ */
 var TITLES={dashboard:'Dashboard',setup:'Company Setup',users:'User Management',billing:'Subscription & Billing',reports:'Reports',notifications:'Notifications',settings:'Settings',help:'Help & Support'};
+/* ===== IN-SHELL APP VIEWER (open apps inside the dashboard, same login) ===== */
+var currentAppOrigin=null;
+function openAppInShell(url,name){
+  if(!url) return;
+  try{ currentAppOrigin=new URL(url).origin; }catch(_){ currentAppOrigin=null; }
+  var frame=document.getElementById('appFrame'), sp=document.getElementById('appSpin');
+  sp.classList.remove('hide');
+  document.getElementById('appFrameName').textContent=name||'App';
+  document.getElementById('appNewTab').onclick=function(){ window.open(url,'_blank','noopener'); };
+  document.getElementById('appReload').onclick=function(){ sp.classList.remove('hide'); frame.src=frame.src; };
+  frame.onload=function(){ sp.classList.add('hide'); };
+  frame.src=url+(url.indexOf('#')<0?'#embed':'');
+  document.querySelectorAll('.view').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById('v-appview').classList.add('active');
+  document.querySelector('.main').classList.add('appmode');
+  document.getElementById('viewTitle').textContent=name||'App';
+  document.querySelectorAll('.navi[data-view]').forEach(function(n){ n.classList.remove('active'); });
+  closeSidebarMobile();
+}
+function closeAppView(){
+  document.querySelector('.main').classList.remove('appmode');
+  document.getElementById('v-appview').classList.remove('active');
+  var frame=document.getElementById('appFrame'); frame.onload=null; frame.src='about:blank'; currentAppOrigin=null;
+  goView('dashboard');
+}
+document.getElementById('appBack').addEventListener('click',closeAppView);
+/* Provide the current session to an embedded app (only our own app subdomains). */
+var EMBED_ALLOWED=/^https:\/\/(tfms|plant|risk|permit|inspection|visitor|contractor)\.jt3rdegre3\.com$/;
+window.addEventListener('message', async function(e){
+  if(!EMBED_ALLOWED.test(e.origin)) return;
+  var d=e.data||{}; if(d.type!=='embed-ready') return;
+  try{ var s=await sb.auth.getSession(); var ses=(s&&s.data)?s.data.session:null;
+    e.source.postMessage(ses?{type:'embed-session',session:ses}:{type:'embed-nosession'}, e.origin);
+  }catch(_){ try{ e.source.postMessage({type:'embed-nosession'}, e.origin); }catch(__){} }
+});
 function goView(v){
+  document.querySelector('.main').classList.remove('appmode');
+  var av=document.getElementById('v-appview'); if(av) av.classList.remove('active');
+  var af=document.getElementById('appFrame'); if(af && af.src && af.src.indexOf('about:blank')<0){ af.onload=null; af.src='about:blank'; }
   document.querySelectorAll('.navi[data-view]').forEach(function(n){ n.classList.toggle('active', n.dataset.view===v); });
   document.querySelectorAll('.view').forEach(function(s){ s.classList.remove('active'); });
   var el=document.getElementById('v-'+v); if(el) el.classList.add('active');
@@ -563,12 +625,12 @@ async function renderBilling(){
         (st==='expiring'&&x.days_left!=null?' · '+x.days_left+'d':'')+'</span>';
       var ap=appByKey(x.app_key);
       var act = x.unlocked
-        ? '<button class="btn sm blue" data-open="'+esc(ap?ap.url:subscribeUrl(x.app_key))+'">Open</button>'+(st==='expiring'||st==='expired'?' <button class="btn sm" data-sub="'+esc(x.app_key)+'">Renew</button>':'')
+        ? '<button class="btn sm blue" data-open="'+esc(ap?ap.url:subscribeUrl(x.app_key))+'" data-name="'+esc(x.name)+'">Open</button>'+(st==='expiring'||st==='expired'?' <button class="btn sm" data-sub="'+esc(x.app_key)+'">Renew</button>':'')
         : '<button class="btn sm primary" data-sub="'+esc(x.app_key)+'">🔒 Subscribe</button>';
       return '<tr><td><b>'+esc(x.name)+'</b></td><td>'+badge+'</td><td class="muted">'+(x.unlocked&&x.access_until?fmtDate(x.access_until):'—')+'</td><td style="text-align:right;">'+act+'</td></tr>';
     }).join('')+'</tbody></table>';
   var bt=document.getElementById('billTableWrap');
-  bt.querySelectorAll('[data-open]').forEach(function(b){ b.addEventListener('click',function(){ window.open(b.getAttribute('data-open'),'_blank','noopener'); }); });
+  bt.querySelectorAll('[data-open]').forEach(function(b){ b.addEventListener('click',function(){ openAppInShell(b.getAttribute('data-open'), b.getAttribute('data-name')); }); });
   bt.querySelectorAll('[data-sub]').forEach(function(b){ b.addEventListener('click',function(){ window.open(subscribeUrl(b.getAttribute('data-sub')),'_blank','noopener'); }); });
   // Premium All-Access card (currency-aware, matches website)
   var pp=premiumFor();
