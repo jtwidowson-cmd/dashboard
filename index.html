@@ -77,8 +77,11 @@
   .icon-btn:hover{border-color:var(--blue);}
   .content{padding:22px;max-width:1180px;width:100%;}
   .view{display:none;} .view.active{display:block;}
-  /* in-shell app viewer */
-  .main.appmode .content{display:none;}   /* hide the (empty) views container so the app fills the full height */
+  /* in-shell app viewer — when an app is open it takes the WHOLE screen (one-app feel) */
+  .main.appmode .content{display:none;}       /* hide the (empty) views container */
+  #app.appmode #sidebar{display:none;}         /* cover the master sidebar */
+  #app.appmode .topbar{display:none;}          /* drop the redundant master top bar */
+  #app.appmode .scrim{display:none;}
   #v-appview{display:none;flex:1;flex-direction:column;min-height:0;}
   #v-appview.active{display:flex;}
   .appbar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--line);}
@@ -319,9 +322,10 @@
     <!-- IN-SHELL APP VIEWER (full-height, outside padded content) -->
     <section id="v-appview">
       <div class="appbar">
-        <button class="icon-btn" id="appBack" title="Back to dashboard" style="width:34px;height:34px;font-size:15px;">←</button>
+        <button class="btn sm" id="appBack" title="Back to the management dashboard">← Dashboard</button>
         <span class="nm" id="appFrameName">App</span>
         <span class="sp" id="appSpin"></span>
+        <button class="icon-btn" id="appTheme" title="Light / dark" style="width:34px;height:34px;font-size:15px;">🌙</button>
         <button class="btn sm" id="appReload" title="Reload">⟳</button>
         <button class="btn sm" id="appNewTab" title="Open in a new tab">Open in new tab ↗</button>
       </div>
@@ -368,6 +372,7 @@ function hide(id){document.getElementById(id).classList.add('hidden');}
 
 /* theme */
 function applyTheme(t){ t=(t==='dark'?'dark':'light'); document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('msd_theme',t);}catch(_){} document.getElementById('themeBtn').textContent = t==='dark'?'☀️':'🌙';
+  var at=document.getElementById('appTheme'); if(at) at.textContent = t==='dark'?'☀️':'🌙';
   try{ var f=document.getElementById('appFrame'); if(f&&currentAppOrigin&&f.src&&f.src.indexOf('about:blank')<0){ f.contentWindow.postMessage({type:'embed-theme',theme:t}, currentAppOrigin); } }catch(_){}
 }
 function toggleTheme(){ var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light'; applyTheme(cur==='dark'?'light':'dark'); }
@@ -513,17 +518,20 @@ function openAppInShell(url,name){
   document.querySelectorAll('.view').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById('v-appview').classList.add('active');
   document.querySelector('.main').classList.add('appmode');
+  document.getElementById('app').classList.add('appmode');
   document.getElementById('viewTitle').textContent=name||'App';
   document.querySelectorAll('.navi[data-view]').forEach(function(n){ n.classList.remove('active'); });
   closeSidebarMobile();
 }
 function closeAppView(){
   document.querySelector('.main').classList.remove('appmode');
+  document.getElementById('app').classList.remove('appmode');
   document.getElementById('v-appview').classList.remove('active');
   var frame=document.getElementById('appFrame'); frame.onload=null; frame.src='about:blank'; currentAppOrigin=null;
   goView('dashboard');
 }
 document.getElementById('appBack').addEventListener('click',closeAppView);
+document.getElementById('appTheme') && document.getElementById('appTheme').addEventListener('click',toggleTheme);
 /* Provide the current session to an embedded app (only our own app subdomains). */
 var EMBED_ALLOWED=/^https:\/\/(tfms|plant|risk|permit|inspection|visitor|contractor)\.jt3rdegre3\.com$/;
 window.addEventListener('message', async function(e){
