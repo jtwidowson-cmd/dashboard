@@ -13,12 +13,14 @@
     --paper:#1b2129; --paper-dim:#5a6774;
     --amber:#c8901f; --green:#2f8a3c; --red:#c0392b; --blue:#2c6e9c; --blue-soft:#eaf1f7;
     --shadow:0 8px 30px rgba(20,40,70,.08);
+    --c-good:#2f8a3c; --c-warn:#c8901f; --c-bad:#c0392b; --c-brand:#2c6e9c; --c-track:#d5dae0;
     --font:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
   }
   [data-theme="dark"]{
     --ink:#0e141b; --panel:#161f29; --panel-2:#1c2833; --line:#2a3742;
     --paper:#eef1f0; --paper-dim:#9fb0bd; --blue-soft:#12283a;
     --shadow:0 8px 30px rgba(0,0,0,.35);
+    --c-good:#37c24d; --c-warn:#e0a52a; --c-bad:#e05c4b; --c-brand:#4a97d6; --c-track:#2a3742;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
@@ -41,7 +43,8 @@
 
   /* login */
   .overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--ink);}
-  .login-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:30px 26px;box-shadow:var(--shadow);}
+  .login-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:30px 26px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+  .login-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--amber),#e6bd66);}
   .brand-logo{width:76px;height:76px;border-radius:50%;margin:0 auto 12px;display:block;object-fit:cover;}
   .login-title{font-size:19px;font-weight:700;text-align:center;margin:2px 0 2px;}
   .login-sub{color:var(--paper-dim);font-size:13.5px;text-align:center;margin-bottom:16px;}
@@ -111,6 +114,20 @@
   .app-card .status.off{background:rgba(90,103,116,.14);color:var(--paper-dim);}
   .app-card.locked{opacity:.92;}
   .app-card.locked .ic{filter:grayscale(.5);}
+
+  /* charts (matches app family) */
+  .chart-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:22px;}
+  .chart-card .sec-h{margin:0 0 14px;}
+  .chart-wrap{display:flex;align-items:center;gap:26px;flex-wrap:wrap;}
+  .donut-hold{position:relative;flex:none;}
+  .donut-hold .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+  .donut-hold .donut-center .dc-n{font-size:24px;font-weight:800;line-height:1;}
+  .donut-hold .donut-center .dc-l{font-size:10.5px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
+  .donut-legend{display:flex;flex-direction:column;gap:9px;font-size:13.5px;min-width:190px;flex:1;}
+  .donut-legend .lg{display:flex;align-items:center;gap:9px;}
+  .donut-legend .sw{width:12px;height:12px;border-radius:3px;flex:none;}
+  .donut-legend .lv{font-weight:700;margin-left:auto;padding-left:14px;}
+  .c-good{color:var(--c-good);} .c-track-t{color:var(--paper-dim);}
 
   .field{margin-bottom:12px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
@@ -241,6 +258,16 @@
           <div class="tile"><div class="n" id="tTotal">0</div><div class="l">Available apps</div></div>
           <div class="tile a"><div class="n" id="tTeam">0</div><div class="l">Team members</div></div>
           <div class="tile b"><div class="n" id="tNext">—</div><div class="l">Next renewal</div></div>
+        </div>
+        <div class="chart-card" id="portfolioCard">
+          <div class="sec-h">Subscription coverage</div>
+          <div class="chart-wrap">
+            <div class="donut-hold">
+              <div id="portfolioDonut"></div>
+              <div class="donut-center"><div class="dc-n" id="pdPct">0%</div><div class="dc-l">Active</div></div>
+            </div>
+            <div class="donut-legend" id="portfolioLegend"></div>
+          </div>
         </div>
         <div class="sec-h">Your applications</div>
         <div class="apps-grid" id="appsGrid"><div class="empty">Loading…</div></div>
@@ -468,6 +495,30 @@ async function loadApps(){ try{ var r=await sb.rpc('my_apps'); apps=(r.data&&Arr
 async function loadUsers(){ try{ var r=await sb.from('profiles').select('id,name,email,role'); users=(!r.error&&r.data)?r.data:[]; }catch(_){ users=[]; } }
 
 /* ============ DASHBOARD ============ */
+function donutSvg(segs, size, thick){
+  var total=segs.reduce(function(s,x){return s+x.v;},0)||0;
+  var r=(size-thick)/2, cx=size/2, cy=size/2, C=2*Math.PI*r;
+  var off=0, arcs='';
+  if(total>0){ segs.forEach(function(sg){ if(sg.v>0){ var len=(sg.v/total)*C, gap=Math.min(2,len);
+    arcs+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+sg.color+'" stroke-width="'+thick+'" stroke-dasharray="'+(len-gap).toFixed(2)+' '+(C-len+gap).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'" transform="rotate(-90 '+cx+' '+cy+')"></circle>';
+    off+=len; } }); }
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" role="img" aria-label="Subscription coverage donut">'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--c-track)" stroke-width="'+thick+'"></circle>'
+    +arcs+'</svg>';
+}
+function renderPortfolioDonut(active, locked){
+  var el=document.getElementById('portfolioDonut'); if(!el) return;
+  var total=active+locked;
+  var segs=[{v:active,color:'var(--c-good)'},{v:locked,color:'var(--c-track)'}];
+  el.innerHTML=donutSvg(segs,132,20);
+  var pct=total?Math.round(active/total*100):0;
+  var pe=document.getElementById('pdPct'); if(pe) pe.textContent=pct+'%';
+  var lg=document.getElementById('portfolioLegend');
+  if(lg) lg.innerHTML=
+     '<div class="lg"><span class="sw" style="background:var(--c-good);"></span><span>Active apps</span><span class="lv c-good">'+active+'</span></div>'
+    +'<div class="lg"><span class="sw" style="background:var(--c-track);"></span><span>Locked apps</span><span class="lv c-track-t">'+locked+'</span></div>'
+    +'<div class="lg" style="border-top:1px solid var(--line);padding-top:8px;margin-top:2px;"><span>Available in total</span><span class="lv">'+total+'</span></div>';
+}
 function renderDashboard(){
   var active=apps.filter(function(a){return a.unlocked;});
   document.getElementById('tActive').textContent=active.length;
@@ -475,6 +526,7 @@ function renderDashboard(){
   document.getElementById('tTeam').textContent=users.length;
   var dates=active.map(function(a){return a.access_until;}).filter(Boolean).sort();
   document.getElementById('tNext').textContent=dates.length?fmtDate(dates[0]):'—';
+  renderPortfolioDonut(active.length, apps.length-active.length);
   var g=document.getElementById('appsGrid');
   g.innerHTML = apps.length? apps.map(function(a){
     var on=a.unlocked;
