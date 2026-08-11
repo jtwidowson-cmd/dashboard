@@ -402,7 +402,7 @@ window.__sbLoad = (window.supabase) ? Promise.resolve(true) : new Promise(functi
 var SUPABASE_URL='https://xsfrgivexrwzvmhmysrf.supabase.co';
 var SUPABASE_ANON_KEY='sb_publishable_yYB5wciGbc7zJyc7oe1RYg_B9npEyqN';
 var sb=null; function initSb(){ if(sb) return true; try{ if(window.supabase && window.supabase.createClient){ sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); return true; } }catch(e){ console.error('Supabase init failed',e); } return false; } initSb();
-var userEmail='', userName='', userRole='', isOwner=false, isPremium=false, myId=null;
+var userEmail='', userName='', userRole='', isOwner=false, isPremium=false, myId=null, isMainAdmin=false, dashRole='';
 var company={id:null,name:'',invite:'',email:'',biz:''}, apps=[], users=[];
 var billing=[], plans=[], invoices=[];
 var WEBSITE='https://jt3rdegre3.com';
@@ -482,11 +482,16 @@ async function boot(){
   if(!s){ show('loginOverlay'); return; }
   userEmail=s.user.email||''; myId=s.user.id;
   try{ var o=await sb.rpc('is_platform_owner'); isOwner=(o.data===true); }catch(_){}
-  try{ var pr=await sb.from('profiles').select('role,name').eq('id',myId).single(); if(pr.data){ userRole=pr.data.role||''; userName=pr.data.name||''; } }catch(_){}
+  try{ var pr=await sb.from('profiles').select('name').eq('id',myId).single(); if(pr.data){ userName=pr.data.name||''; } }catch(_){}
+  try{ var ma=await sb.rpc('is_company_main_admin'); isMainAdmin=(ma.data===true); }catch(_){ isMainAdmin=false; }
+  try{ var dr=await sb.rpc('current_app_role_strict',{p_app:'dashboard'}); dashRole=(dr&&dr.data)?dr.data:''; }catch(_){ dashRole=''; }
+  userRole=(isOwner||isMainAdmin)?'admin':(dashRole||'');
   await loadCompany(); await loadApps();
   if(isOwner){ isPremium=true; }
   else{ try{ var pm=await sb.rpc('is_premium'); isPremium=(pm.data===true); }catch(_){ isPremium=false; } }
   if(!isPremium){ hide('loginOverlay'); showPremiumGate(); return; }
+  var dashAccess=isOwner||isMainAdmin||(dashRole==='admin'||dashRole==='officer'||dashRole==='viewer');
+  if(!dashAccess){ hide('loginOverlay'); showLauncherGate(); return; }
   hide('loginOverlay'); document.getElementById('app').classList.remove('hidden');
   await loadUsers();
   paintProfile(); renderDashboard(); renderAppNav(); renderShare();
@@ -498,6 +503,19 @@ function showPremiumGate(){
   wrap.innerHTML = on.length
     ? on.map(function(a){ return '<a class="btn blue full" href="'+esc(a.url)+'" target="_blank" rel="noopener">Open '+esc(a.sidebar_name||a.name)+' →</a>'; }).join('')
     : '<div class="muted" style="font-size:13px;">No active app on your account yet. Contact support@jt3rdegre3.com.</div>';
+  document.getElementById('premiumGate').classList.remove('hidden');
+}
+function showLauncherGate(){
+  applyBrand(company.logo_url||'');
+  var card=document.querySelector('#premiumGate .login-card');
+  if(card){ var t=card.querySelector('.login-title'); if(t) t.textContent='Your apps';
+    var sub=card.querySelector('.login-sub'); if(sub) sub.innerHTML='The Management Dashboard is limited to your company\u2019s main admin. Open your apps below.';
+    var up=card.querySelector('a.btn.primary.full'); if(up) up.style.display='none'; }
+  var wrap=document.getElementById('gateApps');
+  var on=apps.filter(function(a){return a.unlocked;});
+  wrap.innerHTML = on.length
+    ? on.map(function(a){ return '<a class="btn blue full" href="'+esc(a.url)+'" target="_blank" rel="noopener">Open '+esc(a.sidebar_name||a.name)+' \u2192</a>'; }).join('')
+    : '<div class="muted" style="font-size:13px;">No active app on your account yet. Contact your admin.</div>';
   document.getElementById('premiumGate').classList.remove('hidden');
 }
 document.getElementById('gateSignout').addEventListener('click', doLogout);
@@ -514,7 +532,7 @@ async function loadCompany(){
   try{ var l=await sb.from('companies').select('logo_url').limit(1).single(); if(l.data&&l.data.logo_url) applyBrand(l.data.logo_url); }catch(_){}
 }
 async function loadApps(){ try{ var r=await sb.rpc('my_apps'); apps=(r.data&&Array.isArray(r.data))?r.data:[]; }catch(_){ apps=[]; } }
-async function loadUsers(){ try{ var r=await sb.from('profiles').select('id,name,email,role'); users=(!r.error&&r.data)?r.data:[]; }catch(_){ users=[]; } }
+async function loadUsers(){ try{ var r=await sb.from('profiles').select('id,name,email,role'); var us=(!r.error&&r.data)?r.data:[]; var m={}; try{ var ra=await sb.from('app_roles').select('user_id,role').eq('app_key','dashboard'); if(!ra.error&&ra.data){ ra.data.forEach(function(x){ m[x.user_id]=x.role; }); } }catch(_){} users=us.map(function(u){ return {id:u.id,name:u.name,email:u.email,role:(m[u.id]||'')}; }); }catch(_){ users=[]; } }
 
 /* ============ DASHBOARD ============ */
 function donutSvg(segs, size, thick){
@@ -640,7 +658,7 @@ document.getElementById('acctBtn2') && document.getElementById('acctBtn2').addEv
 
 /* ============ COMPANY SETUP ============ */
 function hasCompany(){ return !!company.id; }
-function canManage(){ return isOwner || userRole==='admin' || userRole==='officer'; }
+function canManage(){ return isOwner || isMainAdmin || userRole==='admin' || userRole==='officer'; }
 function renderSetup(){
   document.getElementById('setupNoCompany').classList.toggle('hidden', hasCompany());
   document.getElementById('setupGrid').style.display=hasCompany()?'grid':'none';
@@ -669,16 +687,16 @@ function genCode(n){ var a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',x=new Uint32Array(
 function renderCompanyUsers(){
   ['co-users-table'].forEach(function(){});
   var tbody=document.getElementById('co-users-table'); if(!tbody) return;
-  var roles=['admin','officer','inspector','operator','driver'];
+  var roles=['','viewer','officer','admin']; function _rlbl(r){ return r?(r.charAt(0).toUpperCase()+r.slice(1)):'\u2014 No access \u2014'; }
   tbody.innerHTML = users.length? users.map(function(u){ return '<tr>'+
     '<td><div class="u-name">'+esc(u.name||'—')+'</div><div class="u-email">'+esc(u.email||'')+'</div></td>'+
-    '<td><select class="mrole" data-uid="'+esc(u.id)+'">'+roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.charAt(0).toUpperCase()+r.slice(1)+'</option>';}).join('')+'</select></td>'+
+    '<td><select class="mrole" data-uid="'+esc(u.id)+'">'+roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+_rlbl(r)+'</option>';}).join('')+'</select></td>'+
     '<td style="text-align:right;"><button class="btn sm" data-rm="'+esc(u.id)+'" data-name="'+esc(u.name||u.email||'')+'" style="border-color:var(--red);color:var(--red);">Remove</button></td>'+
   '</tr>'; }).join('') : '<tr><td colspan="3" class="empty">No team members yet. Share the invite code.</td></tr>';
   tbody.querySelectorAll('select[data-uid]').forEach(function(sel){ var prev=sel.value; sel.addEventListener('change', async function(){
-    sel.disabled=true; var r=await sb.rpc('set_member_role',{p_profile:sel.dataset.uid,p_role:sel.value}); sel.disabled=false;
-    if(r.error){ toast(r.error.message||'Could not change role — admins only.'); sel.value=prev; return; }
-    await loadUsers(); renderCompanyUsers(); toast('Role updated.');
+    sel.disabled=true; var v=sel.value; var r=v?(await sb.rpc('set_app_role',{p_profile:sel.dataset.uid,p_app:'dashboard',p_role:v})):(await sb.rpc('clear_app_role',{p_profile:sel.dataset.uid,p_app:'dashboard'})); sel.disabled=false;
+    if(r.error){ toast(r.error.message||'Could not change — main admin only.'); sel.value=prev; return; }
+    await loadUsers(); renderCompanyUsers(); toast('Dashboard access updated.');
   }); });
   tbody.querySelectorAll('[data-rm]').forEach(function(b){ b.addEventListener('click', async function(){
     if(b.dataset.rm===(myId||'')){ toast("You can't remove your own account here."); return; }
