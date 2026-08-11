@@ -490,8 +490,6 @@ async function boot(){
   if(isOwner){ isPremium=true; }
   else{ try{ var pm=await sb.rpc('is_premium'); isPremium=(pm.data===true); }catch(_){ isPremium=false; } }
   if(!isPremium){ hide('loginOverlay'); showPremiumGate(); return; }
-  var dashAccess=isOwner||isMainAdmin||(dashRole==='admin'||dashRole==='officer'||dashRole==='viewer');
-  if(!dashAccess){ hide('loginOverlay'); showLauncherGate(); return; }
   hide('loginOverlay'); document.getElementById('app').classList.remove('hidden');
   await loadUsers();
   paintProfile(); renderDashboard(); renderAppNav(); renderShare();
