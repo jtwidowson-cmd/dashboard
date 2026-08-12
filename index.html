@@ -689,20 +689,19 @@ function renderCompanyUsers(){
   tbody.innerHTML = users.length? users.map(function(u){ return '<tr>'+
     '<td><div class="u-name">'+esc(u.name||'—')+'</div><div class="u-email">'+esc(u.email||'')+'</div></td>'+
     '<td><select class="mrole" data-uid="'+esc(u.id)+'">'+roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+_rlbl(r)+'</option>';}).join('')+'</select></td>'+
-    '<td style="text-align:right;"><button class="btn sm" data-rm="'+esc(u.id)+'" data-name="'+esc(u.name||u.email||'')+'" style="border-color:var(--red);color:var(--red);">Remove</button></td>'+
+    '<td style="text-align:right;">'+(isMainAdmin?('<button class="btn sm" data-del="'+esc(u.id)+'" data-name="'+esc(u.name||u.email||'')+'" style="border-color:var(--red);color:var(--red);">Delete</button>'):'')+'</td>'+
   '</tr>'; }).join('') : '<tr><td colspan="3" class="empty">No team members yet. Share the invite code.</td></tr>';
   tbody.querySelectorAll('select[data-uid]').forEach(function(sel){ var prev=sel.value; sel.addEventListener('change', async function(){
     sel.disabled=true; var v=sel.value; var r=v?(await sb.rpc('set_app_role',{p_profile:sel.dataset.uid,p_app:'dashboard',p_role:v})):(await sb.rpc('clear_app_role',{p_profile:sel.dataset.uid,p_app:'dashboard'})); sel.disabled=false;
     if(r.error){ toast(r.error.message||'Could not change — main admin only.'); sel.value=prev; return; }
     await loadUsers(); renderCompanyUsers(); toast('Dashboard access updated.');
   }); });
-  tbody.querySelectorAll('[data-rm]').forEach(function(b){ b.addEventListener('click', async function(){
-    if(b.dataset.rm===(myId||'')){ toast("You can't remove your own account here."); return; }
-    if(!confirm('Remove '+b.dataset.name+"? Their login is deleted.")) return;
-    b.disabled=true; var removed=false;
-    try{ var r=await sb.functions.invoke('admin-members',{body:{action:'delete',id:b.dataset.rm}}); if(!r.error&&r.data&&r.data.ok){removed=true;} else if(r.data&&r.data.error){ toast(r.data.error); b.disabled=false; return; } }catch(_){}
-    if(!removed){ var d=await sb.from('profiles').delete().eq('id',b.dataset.rm); if(d.error){ toast('Could not remove — admins only.'); b.disabled=false; return; } }
-    await loadUsers(); renderCompanyUsers(); renderDashboard(); toast('Member removed.');
+  tbody.querySelectorAll('[data-del]').forEach(function(b){ b.addEventListener('click', async function(){
+    if(!confirm('DELETE the whole account for '+b.dataset.name+'?\n\nThis removes their login from EVERY app and cannot be undone.')) return;
+    b.disabled=true; var ok=false;
+    try{ var r=await sb.functions.invoke('admin-members',{body:{action:'delete',id:b.dataset.del}}); if(!r.error&&r.data&&r.data.ok){ok=true;} else if(r.data&&r.data.error){ toast(r.data.error); b.disabled=false; return; } }catch(_){}
+    if(!ok){ toast('Could not delete — main admin only.'); b.disabled=false; return; }
+    await loadUsers(); renderCompanyUsers(); renderDashboard(); toast('Account deleted (all apps).');
   }); });
 }
 function renderUsers(){ renderCompanyUsers(); }
