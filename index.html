@@ -428,7 +428,7 @@ function toggleTheme(){ var cur=document.documentElement.getAttribute('data-them
 try{ applyTheme(localStorage.getItem('msd_theme')||'light'); }catch(_){ applyTheme('light'); }
 
 /* brand logo (JT default; swaps to company logo) */
-function applyBrand(url){ var a=document.getElementById('loginLogo'), b=document.getElementById('sideLogo'), c=document.getElementById('gateLogo'); var src=url||JT_LOGO; if(a){a.src=src;} if(b){b.src=src;} if(c){c.src=src;} }
+function applyBrand(url){ var a=document.getElementById('loginLogo'), b=document.getElementById('sideLogo'), c=document.getElementById('gateLogo'); var src=url||JT_LOGO; if(a){a.src=JT_LOGO;} if(b){b.src=src;} if(c){c.src=src;} /* sign-in screen (loginLogo) always JT.3rDegre3 */ }
 
 /* ============ AUTH ============ */
 function setMode(m){
