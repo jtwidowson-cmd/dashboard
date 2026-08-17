@@ -100,7 +100,24 @@ window.__sbLoad = (window.supabase) ? Promise.resolve(true) : new Promise(functi
   .topbar h2{font-size:17px;margin:0;flex:1;}
   .icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--paper);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;}
   .icon-btn:hover{border-color:var(--blue);}
-  .content{padding:22px;max-width:1180px;width:100%;}
+  .content{padding:22px;width:100%;}
+  /* collapsible Manage group (hidden by default) */
+  .navsec.toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
+  .navsec.toggle:hover{color:var(--paper);}
+  .navsec .caret{font-size:11px;transition:transform .2s ease;}
+  .navsec.toggle.open .caret{transform:rotate(90deg);}
+  .mgmt-group{display:none;}
+  .mgmt-group.open{display:block;}
+  .sidebar.collapsed .navsec.toggle .caret{display:none;}
+  /* signed-in-as footer + logout */
+  .side-foot{margin-top:auto;border-top:1px solid var(--line);padding:12px 16px;display:flex;flex-direction:column;gap:9px;}
+  .side-foot .su{display:flex;align-items:center;gap:9px;min-width:0;}
+  .side-foot .su .av{width:30px;height:30px;border-radius:50%;background:var(--blue-soft);color:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:none;}
+  .side-foot .su .meta{min-width:0;}
+  .side-foot .su .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .role-badge{display:inline-block;font-size:10px;font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--blue);background:var(--blue-soft);border-radius:6px;padding:2px 7px;margin-top:2px;}
+  .btn.full{width:100%;justify-content:center;}
+  .sidebar.collapsed .side-foot .su .meta{display:none;}
   .view{display:none;} .view.active{display:block;}
   /* in-shell app viewer — when an app is open it takes the WHOLE screen (one-app feel) */
   .main.appmode .content{display:none;}       /* hide the (empty) views container */
@@ -251,15 +268,21 @@ window.__sbLoad = (window.supabase) ? Promise.resolve(true) : new Promise(functi
     <div class="navi active" data-view="dashboard"><span class="ic">▦</span><span class="lbl">Dashboard</span></div>
     <div class="navsec">Applications</div>
     <div id="appNav"></div>
-    <div class="navsec">Manage</div>
-    <div class="navi" data-view="setup"><span class="ic">🏢</span><span class="lbl">Company Setup</span></div>
-    <div class="navi" data-view="users"><span class="ic">👥</span><span class="lbl">User Management</span></div>
-    <div class="navi" data-view="billing"><span class="ic">💳</span><span class="lbl">Subscription &amp; Billing</span></div>
-    <div class="navi" data-view="reports"><span class="ic">📊</span><span class="lbl">Reports</span></div>
-    <div class="navi" data-view="notifications"><span class="ic">🔔</span><span class="lbl">Notifications</span></div>
-    <div class="navi" data-view="settings"><span class="ic">⚙️</span><span class="lbl">Settings</span></div>
-    <div class="navi" data-view="help"><span class="ic">❓</span><span class="lbl">Help &amp; Support</span></div>
-    <div class="navi" id="logoutNav"><span class="ic">⏻</span><span class="lbl">Logout</span></div>
+    <div class="navsec toggle" id="mgmtToggle">Manage <span class="caret">▸</span></div>
+    <div class="mgmt-group" id="mgmtGroup">
+      <div class="navi" data-view="setup"><span class="ic">🏢</span><span class="lbl">Company Setup</span></div>
+      <div class="navi" data-view="users"><span class="ic">👥</span><span class="lbl">User Management</span></div>
+      <div class="navi" data-view="billing"><span class="ic">💳</span><span class="lbl">Subscription &amp; Billing</span></div>
+      <div class="navi" data-view="reports"><span class="ic">📊</span><span class="lbl">Reports</span></div>
+      <div class="navi" data-view="notifications"><span class="ic">🔔</span><span class="lbl">Notifications</span></div>
+      <div class="navi" data-view="settings"><span class="ic">⚙️</span><span class="lbl">Settings</span></div>
+      <div class="navi" data-view="help"><span class="ic">❓</span><span class="lbl">Help &amp; Support</span></div>
+    </div>
+    <div class="side-foot">
+      <div class="su"><div class="av" id="sideAvatar">–</div><div class="meta"><div class="nm" id="sideUserName">Signed in</div><span class="role-badge" id="sideUserRole">Member</span></div></div>
+      <button class="btn sm full" id="logoutNav"><span class="ic">⏻</span><span class="lbl">Log out</span></button>
+      <div style="font-size:9px;opacity:.4;font-family:var(--mono);text-align:center;letter-spacing:.05em">build 2026-08-17b</div>
+    </div>
   </aside>
 
   <div class="main">
@@ -377,6 +400,7 @@ window.__sbLoad = (window.supabase) ? Promise.resolve(true) : new Promise(functi
         <button class="icon-btn" id="appTheme" title="Light / dark" style="width:34px;height:34px;font-size:15px;">🌙</button>
         <button class="btn sm" id="appReload" title="Reload">⟳</button>
         <button class="btn sm" id="appNewTab" title="Open in a new tab">Open in new tab ↗</button>
+        <button class="btn sm" id="appLogout" title="Log out of this app (stay signed in to the dashboard)">⏻ Log out app</button>
       </div>
       <div class="appframe-wrap"><iframe id="appFrame" title="App" referrerpolicy="origin"></iframe></div>
     </section>
@@ -473,6 +497,9 @@ if(location.hash.indexOf('type=recovery')>=0){ try{ sb.auth.onAuthStateChange(fu
 
 async function doLogout(){ try{ await sb.auth.signOut(); }catch(_){} location.reload(); }
 document.getElementById('logoutNav').addEventListener('click', doLogout);
+/* collapsible Manage group (hidden by default) */
+(function(){ var t=document.getElementById('mgmtToggle'), g=document.getElementById('mgmtGroup');
+  if(t&&g){ t.addEventListener('click',function(){ g.classList.toggle('open'); t.classList.toggle('open'); }); } })();
 
 /* ============ BOOT ============ */
 async function boot(){
@@ -519,6 +546,9 @@ function showLauncherGate(){
 document.getElementById('gateSignout').addEventListener('click', doLogout);
 function paintProfile(){
   document.getElementById('welcomeName').textContent='Welcome'+(userName?', '+userName.split(' ')[0]:'')+' 👋';
+  (function(){ var nm=userName||userEmail||'Signed in'; var sn=document.getElementById('sideUserName'); if(sn) sn.textContent=nm;
+    var av=document.getElementById('sideAvatar'); if(av) av.textContent=(nm.trim()[0]||'–').toUpperCase();
+    var rb=document.getElementById('sideUserRole'); if(rb) rb.textContent=(userRole?userRole.charAt(0).toUpperCase()+userRole.slice(1):'Member'); })();
   document.getElementById('welcomeSub').textContent=company.name?('Signed in to '+company.name):'';
   document.getElementById('sideCompany').textContent=company.name||'JT.3rDegre3';
 }
@@ -596,6 +626,8 @@ var TITLES={dashboard:'Dashboard',setup:'Company Setup',users:'User Management',
 var currentAppOrigin=null;
 function openAppInShell(url,name){
   if(!url) return;
+  /* Open the app in its OWN tab so it always opens (not blocked by iframe embedding) and keeps its own login/logout. */
+  window.open(url,'_blank','noopener'); return;
   try{ currentAppOrigin=new URL(url).origin; }catch(_){ currentAppOrigin=null; }
   var frame=document.getElementById('appFrame'), sp=document.getElementById('appSpin');
   sp.classList.remove('hide');
@@ -621,6 +653,9 @@ function closeAppView(){
   goView('dashboard');
 }
 document.getElementById('appBack').addEventListener('click',closeAppView);
+/* Log out of the OPEN app only — closes the app and returns to the dashboard; your dashboard sign-in stays active. */
+(function(){ var lo=document.getElementById('appLogout'); if(!lo) return;
+  lo.addEventListener('click',function(){ closeAppView(); try{ toast('Logged out of the app. You are still signed in to the dashboard.'); }catch(_){} }); })();
 document.getElementById('appTheme') && document.getElementById('appTheme').addEventListener('click',toggleTheme);
 /* Provide the current session to an embedded app (only our own app subdomains). */
 var EMBED_ALLOWED=/^https:\/\/(tfms|plant|risk|permit|inspection|visitor|contractor)\.jt3rdegre3\.com$/;
