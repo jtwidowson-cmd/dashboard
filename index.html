@@ -281,7 +281,7 @@ window.__sbLoad = (window.supabase) ? Promise.resolve(true) : new Promise(functi
     <div class="side-foot">
       <div class="su"><div class="av" id="sideAvatar">–</div><div class="meta"><div class="nm" id="sideUserName">Signed in</div><span class="role-badge" id="sideUserRole">Member</span></div></div>
       <button class="btn sm full" id="logoutNav"><span class="ic">⏻</span><span class="lbl">Log out</span></button>
-      <div style="font-size:9px;opacity:.4;font-family:var(--mono);text-align:center;letter-spacing:.05em">build 2026-08-17b</div>
+      <div style="font-size:9px;opacity:.4;font-family:var(--mono);text-align:center;letter-spacing:.05em">build 2026-08-17c</div>
     </div>
   </aside>
 
@@ -626,8 +626,6 @@ var TITLES={dashboard:'Dashboard',setup:'Company Setup',users:'User Management',
 var currentAppOrigin=null;
 function openAppInShell(url,name){
   if(!url) return;
-  /* Open the app in its OWN tab so it always opens (not blocked by iframe embedding) and keeps its own login/logout. */
-  window.open(url,'_blank','noopener'); return;
   try{ currentAppOrigin=new URL(url).origin; }catch(_){ currentAppOrigin=null; }
   var frame=document.getElementById('appFrame'), sp=document.getElementById('appSpin');
   sp.classList.remove('hide');
