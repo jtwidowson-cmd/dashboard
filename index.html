@@ -516,7 +516,11 @@ async function boot(){
   await loadCompany(); await loadApps();
   if(isOwner){ isPremium=true; }
   else{ try{ var pm=await sb.rpc('is_premium'); isPremium=(pm.data===true); }catch(_){ isPremium=false; } }
-  if(!isPremium){ hide('loginOverlay'); showPremiumGate(); return; }
+  // Any buyer may open the dashboard. Single-app (non-Premium) buyers see their purchased
+  // app(s) as "Open" and the rest as locked/Subscribe. Only accounts with NO active app at
+  // all still see the gate. Real per-app security stays in the backend (has_app + RLS).
+  var hasAnyApp = apps.some(function(a){ return a.unlocked; });
+  if(!isPremium && !hasAnyApp){ hide('loginOverlay'); showPremiumGate(); return; }
   hide('loginOverlay'); document.getElementById('app').classList.remove('hidden');
   await loadUsers();
   paintProfile(); renderDashboard(); renderAppNav(); renderShare();
