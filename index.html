@@ -29,6 +29,49 @@ window.__sbLoad = (window.supabase) ? Promise.resolve(true) : new Promise(functi
   setTimeout(function(){ finish(!!window.supabase); }, 12000);
 });
 </script>
+<!-- Cloudflare Turnstile — anti-bot challenge on auth actions. Shares the same widget
+     (site key) as the JT.3rDegre3 apps so tokens validate against the one captcha
+     secret in Supabase. Third-party security widget on a rolling URL, so no SRI. -->
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=__onTurnstileLoad" defer></script>
+<script>
+window.TS_SITEKEY='0x4AAAAAAEwAZznM_FZOjpYF';
+window.__tsId=null; window.__tsToken=''; window.__tsWaiters=[];
+function __tsResolveAll(t){
+  window.__tsToken=t||'';
+  var list=window.__tsWaiters; window.__tsWaiters=[];
+  for(var i=0;i<list.length;i++){ try{ list[i](window.__tsToken); }catch(_){} }
+}
+window.__renderTurnstile=function(){
+  if(window.__tsId!==null || typeof turnstile==='undefined') return;
+  if(!document.getElementById('tsCaptcha')){ document.addEventListener('DOMContentLoaded', window.__renderTurnstile, {once:true}); return; }
+  try{
+    window.__tsId=turnstile.render('#tsCaptcha',{
+      sitekey:window.TS_SITEKEY, appearance:'interaction-only',
+      callback:function(t){ __tsResolveAll(t); },
+      'error-callback':function(){ __tsResolveAll(''); return true; },
+      'expired-callback':function(){ window.__tsToken=''; }
+    });
+  }catch(_){ window.__tsId=null; }
+};
+window.__onTurnstileLoad=function(){ window.__renderTurnstile(); };
+/* Fresh single-use captcha token, or '' if Turnstile can't load (app then behaves as
+   before — safe until CAPTCHA is switched on in Supabase). Hands out the current token,
+   then resets so the next call gets a new one. */
+window.getCaptchaToken=function(){
+  return new Promise(function(resolve){
+    if(typeof turnstile==='undefined'){ resolve(''); return; }
+    if(window.__tsId===null) window.__renderTurnstile();
+    if(window.__tsId===null){ resolve(''); return; }
+    var done=false;
+    function give(t){ if(done) return; done=true; resolve(t||''); try{ turnstile.reset(window.__tsId); window.__tsToken=''; }catch(_){} }
+    var cur=''; try{ cur=turnstile.getResponse(window.__tsId)||''; }catch(_){}
+    if(!cur) cur=window.__tsToken||'';
+    if(cur){ give(cur); return; }
+    window.__tsWaiters.push(give);
+    setTimeout(function(){ if(!done){ done=true; resolve(''); } }, 12000);
+  });
+};
+</script>
 <style>
   :root{
     --ink:#eef1f4; --panel:#ffffff; --panel-2:#eef1f5; --line:#d5dae0;
@@ -197,6 +240,7 @@ window.__sbLoad = (window.supabase) ? Promise.resolve(true) : new Promise(functi
 <body>
 
 <!-- LOGIN -->
+<div id="tsCaptcha" style="position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:100000;"></div>
 <div id="loginOverlay" class="overlay">
   <div class="login-card">
     <img id="loginLogo" class="brand-logo" alt="">
@@ -467,25 +511,29 @@ document.getElementById('forgotLink').addEventListener('click',function(){ setMo
 document.getElementById('backSignin').addEventListener('click',function(){ setMode('signin'); });
 
 document.getElementById('signinForm').addEventListener('submit', async function(e){ e.preventDefault(); var er=document.getElementById('liErr'); er.textContent='';
-  var r=await sb.auth.signInWithPassword({email:document.getElementById('liEmail').value.trim(),password:document.getElementById('liPass').value});
+  var captchaToken=await getCaptchaToken();
+  var r=await sb.auth.signInWithPassword({email:document.getElementById('liEmail').value.trim(),password:document.getElementById('liPass').value,options:{captchaToken}});
   if(r.error){ er.textContent=r.error.message||'Sign-in failed.'; return; } location.reload();
 });
 document.getElementById('registerForm').addEventListener('submit', async function(e){ e.preventDefault(); var er=document.getElementById('rgErr'); er.textContent='';
   var code=document.getElementById('rgCode').value.trim().toUpperCase(), co=document.getElementById('rgCompany').value.trim(), nm=document.getElementById('rgName').value.trim(), em=document.getElementById('rgEmail').value.trim(), pw=document.getElementById('rgPass').value;
   if(!code||!co||!nm||!em||!pw){ er.textContent='Please fill in every field.'; return; }
-  var r=await sb.auth.signUp({email:em,password:pw,options:{data:{signup_type:'company',company_name:co,full_name:nm,activation_code:code}}});
+  var captchaToken=await getCaptchaToken();
+  var r=await sb.auth.signUp({email:em,password:pw,options:{captchaToken,data:{signup_type:'company',company_name:co,full_name:nm,activation_code:code}}});
   if(r.error){ er.textContent='Could not create the account — check your activation code and password (8+ chars, an uppercase letter and a number).'; return; }
   if(r.data&&r.data.session){ location.reload(); } else { er.style.color='var(--green)'; er.textContent='Account created — please check your email to confirm, then sign in.'; setMode('signin'); }
 });
 document.getElementById('joinForm').addEventListener('submit', async function(e){ e.preventDefault(); var er=document.getElementById('jnErr'); er.textContent='';
   var code=document.getElementById('jnCode').value.trim().toUpperCase(), nm=document.getElementById('jnName').value.trim(), em=document.getElementById('jnEmail').value.trim(), pw=document.getElementById('jnPass').value;
   if(!code||!nm||!em||!pw){ er.textContent='Please fill in every field.'; return; }
-  var r=await sb.auth.signUp({email:em,password:pw,options:{data:{signup_type:'join',invite_code:code,full_name:nm}}});
+  var captchaToken=await getCaptchaToken();
+  var r=await sb.auth.signUp({email:em,password:pw,options:{captchaToken,data:{signup_type:'join',invite_code:code,full_name:nm}}});
   if(r.error){ er.textContent='Could not join — check your invite code and password.'; return; }
   if(r.data&&r.data.session){ location.reload(); } else { er.style.color='var(--green)'; er.textContent='Account created — please check your email to confirm, then sign in.'; setMode('signin'); }
 });
 document.getElementById('resetForm').addEventListener('submit', async function(e){ e.preventDefault(); var m=document.getElementById('rsMsg'); m.textContent='';
-  var r=await sb.auth.resetPasswordForEmail(document.getElementById('rsEmail').value.trim(),{redirectTo:location.origin+location.pathname});
+  var captchaToken=await getCaptchaToken();
+  var r=await sb.auth.resetPasswordForEmail(document.getElementById('rsEmail').value.trim(),{redirectTo:location.origin+location.pathname,captchaToken});
   m.textContent = r.error? r.error.message : 'If that email has an account, a reset link is on its way.';
 });
 document.getElementById('newpassForm').addEventListener('submit', async function(e){ e.preventDefault(); var m=document.getElementById('npMsg'); m.style.color='var(--red)';
