@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#c8901f">
 <title>Management System Dashboard — JT.3rDegre3</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* Resilient loader: if the primary CDN is slow or blocked (common on mobile / with ad-blockers),
@@ -79,7 +79,7 @@ window.getCaptchaToken=function(){
     --amber:#c8901f; --green:#2f8a3c; --red:#c0392b; --blue:#2c6e9c; --blue-soft:#eaf1f7;
     --shadow:0 8px 30px rgba(20,40,70,.08);
     --c-good:#2f8a3c; --c-warn:#c8901f; --c-bad:#c0392b; --c-brand:#2c6e9c; --c-track:#d5dae0;
-    --font:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+    --font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --mono:'IBM Plex Mono',monospace;
   }
   [data-theme="dark"]{
     --ink:#0e141b; --panel:#161f29; --panel-2:#1c2833; --line:#2a3742;
@@ -325,7 +325,6 @@ window.getCaptchaToken=function(){
     <div class="side-foot">
       <div class="su"><div class="av" id="sideAvatar">–</div><div class="meta"><div class="nm" id="sideUserName">Signed in</div><span class="role-badge" id="sideUserRole">Member</span></div></div>
       <button class="btn sm full" id="logoutNav"><span class="ic">⏻</span><span class="lbl">Log out</span></button>
-      <div style="font-size:9px;opacity:.4;font-family:var(--mono);text-align:center;letter-spacing:.05em">build 2026-08-17c</div>
     </div>
   </aside>
 
