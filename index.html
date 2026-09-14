@@ -298,7 +298,7 @@ window.getCaptchaToken=function(){
     <div class="login-title">Premium members only</div>
     <div class="login-sub">The Management Dashboard is part of <b>Premium All-Access</b>. Your current plan gives you your app directly — open it below.</div>
     <div id="gateApps" style="display:flex;flex-direction:column;gap:8px;margin:6px 0 14px;"></div>
-    <a class="btn primary full" href="https://jt3rdegre3.com/#pricing" target="_blank" rel="noopener">Upgrade to Premium All-Access</a>
+    <a class="btn primary full" href="https://www.jt3rdegre3.com/#pricing" target="_blank" rel="noopener">Upgrade to Premium All-Access</a>
     <button class="linkbtn" id="gateSignout" style="margin-top:12px;">Sign out</button>
   </div>
 </div>
@@ -472,8 +472,8 @@ var sb=null; function initSb(){ if(sb) return true; try{ if(window.supabase && w
 var userEmail='', userName='', userRole='', isOwner=false, isPremium=false, myId=null, isMainAdmin=false, dashRole='';
 var company={id:null,name:'',invite:'',email:'',biz:''}, apps=[], users=[];
 var billing=[], plans=[], invoices=[];
-var WEBSITE='https://jt3rdegre3.com';
-function subscribeUrl(key){ return WEBSITE+'/#'+encodeURIComponent(key); }
+var WEBSITE='https://www.jt3rdegre3.com';
+function subscribeUrl(key){ return WEBSITE+'/#pricing'; }
 function appByKey(k){ for(var i=0;i<apps.length;i++){ if(apps[i].key===k) return apps[i]; } return null; }
 function curSym(c){ return {EUR:'€',USD:'$',GBP:'£',PHP:'₱'}[c]||((c||'')+' '); }
 function fmtPrice(p,c){ if(p==null||p==='') return null; return curSym(c)+Number(p).toFixed(Number(p)%1?2:0); }
