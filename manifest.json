@@ -1,0 +1,16 @@
+{
+  "name": "JT.3rDegre3 Management System",
+  "short_name": "JT.3rDegre3",
+  "description": "JT.3rDegre3 QHSE platform — your apps, subscriptions and company management in one place.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#c8901f",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
